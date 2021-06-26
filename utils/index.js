@@ -1,4 +1,4 @@
-const dns = require('dns').promises;
+const dns = require("dns").promises;
 
 const ipRegex =
   /^(?:(?:2[0-4]\d|25[0-5]|1\d{2}|[1-9]?\d)\.){3}(?:2[0-4]\d|25[0-5]|1\d{2}|[1-9]?\d)(?:\:(?:\d|[1-9]\d{1,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5]))?$/;
@@ -6,25 +6,25 @@ const ipRegex =
 const domainRegex =
   /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
 
-const isDomainOrIp = data => {
+const isDomainOrIp = (data) => {
   const domain = data?.match(domainRegex);
   const ip = data?.match(ipRegex);
   if (ip) return ip[0];
   else if (domain) return domain[0];
-  throw new Error('Invalid Input');
+  throw new Error("Invalid Input");
 };
 
-const isSubDomain = domain => {
-  const splittedDomain = domain?.split('.');
-  if (splittedDomain?.length > 2 && splittedDomain[0] !== 'www')
-    return splittedDomain[1] + '.' + splittedDomain[2];
+const isSubDomain = (domain) => {
+  const splittedDomain = domain?.split(".");
+  if (splittedDomain?.length > 2 && splittedDomain[0] !== "www")
+    return splittedDomain[1] + "." + splittedDomain[2];
   return domain;
 };
 
 const getPriority = (config, value) => {
   value = isSubDomain(value);
   const item = config?.filter(
-    item => item?.domain?.replace('www.', '') === value
+    (item) => item?.domain?.replace("www.", "") === value
   );
   return item[0]?.priority || -1;
 };
@@ -37,13 +37,21 @@ const sortByPriority = async (config, data) => {
       return getPriority(config, next) - getPriority(config, curr);
     });
     const result = await Promise.allSettled(
-      data.map(async (value, index) => ({
-        key: index,
-        ip: await (await dns.lookup(value, 4)).address,
+      data.map(async (value) => ({
         originalDomain: value,
+        ip: await (await dns.lookup(value, 4)).address,
       }))
     );
-    return result.map(item => item.value);
+    return result.map((item, index) => {
+      if (item.status === "rejected") {
+        return {
+          key: index,
+          ip: "Domain not found",
+          originalDomain: item.reason.hostname,
+        };
+      }
+      return { key: index, ...item.value };
+    });
   } catch (error) {
     console.error(error?.message);
   }
