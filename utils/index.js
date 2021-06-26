@@ -37,9 +37,13 @@ const sortByPriority = async (config, data) => {
       return getPriority(config, next) - getPriority(config, curr);
     });
     const result = await Promise.allSettled(
-      data.map(async value => await dns.lookup(value, 4))
+      data.map(async (value, index) => ({
+        key: index,
+        ip: await (await dns.lookup(value, 4)).address,
+        originalDomain: value,
+      }))
     );
-    return result.map(item => item.value.address);
+    return result.map(item => item.value);
   } catch (error) {
     console.error(error?.message);
   }
